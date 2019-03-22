@@ -19,25 +19,26 @@ Usage
 ```go
 import "Teheran/request"
 
-var req request.Request
-resp, err := req.Post("http://112.74.200.115", nil, nil, 0)
-if err != nil {
-    fmt.Println(err.Error())
-}
-
-if resp.StatusCode == 404 {
-    json, err := resp.Json()
+func testReq() {
+    var req request.Request
+    body := map[string]interface{}{"11": "22"}
+    resp, err := req.Post("http://112.74.200.115", req.WithJson(body))
     if err != nil {
-        fmt.Println("json err", err.Error())
+        fmt.Println(err.Error())
     }
-   
-    for k, v := range json {
-    	fmt.println(k, v)
+
+    if resp.StatusCode == 404 {
+        json, err := resp.Json()
+        if err != nil {
+            fmt.Println("json err", err.Error())
+        }
+
+        for k, v := range json {
+            fmt.println(k, v)
+        }
     }
 }
 
-
-...
 ```
 
 

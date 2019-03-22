@@ -11,42 +11,76 @@ import (
 	"time"
 )
 
-type Request struct {
-	//default disable redirect
-	AllowRedirects bool
 
-	//ssl verify, default false
-	Verify bool
-
-	// CA_BUNDLE path todo
-	verifyPath string
+type args struct {
+	allowRedirects bool
+	verify bool
+	timeout uint
+	params map[string]string
+	json map[string]interface{}
 }
 
-func (cls *Request) Get(url string, params map[string]string, timeout uint) (*Resp, error) {
-    return cls.newRequest(url, "GET", params, nil, timeout)
+type fakeArgs func(*args)
+
+type Request struct {}
+
+func (cls *Request) Get(url string, arg ...fakeArgs) (*Resp, error) {
+    return cls.newRequest(url, "GET", arg...)
 }
 
-func (cls *Request) Post(url string, params map[string]string, json map[string]interface{}, timeout uint) (*Resp, error) {
-    return cls.newRequest(url, "POST", params, json, timeout)
+func (cls *Request) Post(url string, arg ...fakeArgs) (*Resp, error) {
+    return cls.newRequest(url, "POST", arg...)
 }
 
-func (cls *Request) Put(url string, params map[string]string, json map[string]interface{}, timeout uint) (*Resp, error) {
-	return cls.newRequest(url, "PUT", params, json, timeout)
+func (cls *Request) Put(url string, arg ...fakeArgs) (*Resp, error) {
+	return cls.newRequest(url, "PUT", arg...)
 }
 
-func (cls *Request) Delete(url string, params map[string]string, json map[string]interface{}, timeout uint) (*Resp, error) {
-	return cls.newRequest(url, "DELETE", params, json, timeout)
+func (cls *Request) Delete(url string, arg ...fakeArgs) (*Resp, error) {
+	return cls.newRequest(url, "DELETE", arg...)
 }
 
-func (cls *Request) Patch(url string, params map[string]string, json map[string]interface{}, timeout uint) (*Resp, error) {
-	return cls.newRequest(url, "PATCH", params, json, timeout)
+func (cls *Request) Patch(url string, arg ...fakeArgs) (*Resp, error) {
+	return cls.newRequest(url, "PATCH", arg...)
 }
 
-func (cls *Request) Options(url string, params map[string]string, json map[string]interface{}, timeout uint) (*Resp, error) {
-	return cls.newRequest(url, "OPTIONS", params, json, timeout)
+func (cls *Request) Options(url string, arg ...fakeArgs) (*Resp, error) {
+	return cls.newRequest(url, "OPTIONS", arg...)
 }
 
-func (cls *Request) newRequest(url, method string, params map[string]string, json map[string]interface{}, timeout uint) (*Resp, error) {
+func (cls *Request) WithParams(params map[string]string) fakeArgs {
+    return func(arg *args) {
+    	arg.params = params
+	}
+}
+
+func (cls *Request) WithJson(json map[string]interface{}) fakeArgs {
+	return func(arg *args) {
+		arg.json = json
+	}
+}
+
+func (cls *Request) WithTimeout(timeout uint) fakeArgs {
+	return func(arg *args) {
+		arg.timeout = timeout
+	}
+}
+
+func (cls *Request) WithAllowRedirects(allowRedirects bool) fakeArgs {
+	return func(arg *args) {
+		arg.allowRedirects = allowRedirects
+	}
+}
+
+func (cls *Request) WithVerify(verify bool) fakeArgs {
+	return func(arg *args) {
+		arg.verify = verify
+	}
+}
+
+
+
+func (cls *Request) newRequest(url, method string, arg ...fakeArgs) (*Resp, error) {
     var (
     	err error
     	body io.Reader
@@ -55,8 +89,13 @@ func (cls *Request) newRequest(url, method string, params map[string]string, jso
     	resp *http.Response
 	)
 
-    if json != nil {
-    	jsonVal, err = goJson.Marshal(json)
+    ar := new(args)
+    for _, a := range arg {
+    	a(ar)
+	}
+
+    if ar.json != nil && method != "GET" {
+    	jsonVal, err = goJson.Marshal(ar.json)
     	if err != nil {
     		return nil, err
 		}
@@ -69,27 +108,27 @@ func (cls *Request) newRequest(url, method string, params map[string]string, jso
     	return nil, err
 	}
 
-    if json != nil {
+    if ar.json != nil && method != "GET" {
     	req.Header.Set("Content-Type", "application/json")
 	}
 
-    if params != nil {
+    if ar.params != nil {
     	q := req.URL.Query()
-    	for k, v := range params {
+    	for k, v := range ar.params {
             q.Add(k, v)
 		}
     	req.URL.RawQuery = q.Encode()
 	}
 
     cli := &http.Client{
-    	Timeout: time.Second * time.Duration(timeout),
+    	Timeout: time.Second * time.Duration(ar.timeout),
 	}
 
-    if !cls.AllowRedirects {
+    if !ar.allowRedirects {
     	cli.CheckRedirect = cls.disableRedirect
 	}
 
-    if !cls.Verify {
+    if !ar.verify {
 		tr := &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}

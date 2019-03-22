@@ -7,9 +7,15 @@ import (
 
 func main() {
 	var req request.Request
-	req.AllowRedirects = false
-	req.Verify = false
-	resp, err := req.Post("https://cfg.aiclk.com/hdjump?iclicashid=7414647", nil, nil, 0)
+	resp, err := req.Get("http://112.74.200.115/ip",
+		req.WithAllowRedirects(true),
+		req.WithTimeout(1),
+		req.WithJson(map[string]interface{}{
+			"11": "22",}),
+		req.WithParams(map[string]string{
+			"11": "22",}),
+		)
+
 	if err != nil {
 		fmt.Println(err.Error())
 		return
@@ -20,6 +26,6 @@ func main() {
 	if err != nil {
 		fmt.Println("json err", err.Error())
 	}
-	fmt.Println(json["errmsg"])
+	fmt.Println(json["ip"])
 }
 
