@@ -7,9 +7,12 @@ import (
 
 func main() {
 	var req request.Request
-	resp, err := req.Post("http://112.74.200.115", nil, nil, 0)
+	req.AllowRedirects = false
+	req.Verify = false
+	resp, err := req.Post("https://cfg.aiclk.com/hdjump?iclicashid=7414647", nil, nil, 0)
 	if err != nil {
 		fmt.Println(err.Error())
+		return
 	}
 
 	fmt.Println(resp.StatusCode)

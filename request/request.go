@@ -2,14 +2,25 @@ package request
 
 import (
 	"bytes"
+	"crypto/tls"
 	goJson "encoding/json"
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/http/cookiejar"
 	"time"
 )
 
-type Request struct {}
+type Request struct {
+	//default disable redirect
+	AllowRedirects bool
+
+	//ssl verify, default false
+	Verify bool
+
+	// CA_BUNDLE path todo
+	verifyPath string
+}
 
 func (cls *Request) Get(url string, params map[string]string, timeout uint) (*Resp, error) {
     return cls.newRequest(url, "GET", params, nil, timeout)
@@ -74,6 +85,21 @@ func (cls *Request) newRequest(url, method string, params map[string]string, jso
     	Timeout: time.Second * time.Duration(timeout),
 	}
 
+    if !cls.AllowRedirects {
+    	cli.CheckRedirect = cls.disableRedirect
+	}
+
+    if !cls.Verify {
+		tr := &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+
+		cookieJar, _ := cookiejar.New(nil)
+
+		cli.Jar = cookieJar
+		cli.Transport = tr
+	}
+
     resp, err = cli.Do(req)
     if err != nil {
     	return nil, err
@@ -87,6 +113,10 @@ func (cls *Request) newRequest(url, method string, params map[string]string, jso
 
     resP.Body, err = ioutil.ReadAll(resp.Body)
     return resP, err
+}
+
+func (cls *Request) disableRedirect(*http.Request, []*http.Request) error {
+	return http.ErrUseLastResponse
 }
 
 type Resp struct {
