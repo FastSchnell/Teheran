@@ -11,7 +11,7 @@ Installation
 
 Install Teheran using the "go get" command:
 
-    go get github.com/FastSchnell/Teheran/request
+    go get github.com/FastSchnell/Teheran/requests
     
     
 Usage
