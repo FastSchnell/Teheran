@@ -1,4 +1,4 @@
-package request
+package requests
 
 import (
 	"bytes"
@@ -22,57 +22,56 @@ type args struct {
 
 type fakeArgs func(*args)
 
-type Request struct {}
 
-func (cls *Request) Get(url string, arg ...fakeArgs) (*Resp, error) {
-    return cls.newRequest(url, "GET", arg...)
+func Get(url string, arg ...fakeArgs) (*Resp, error) {
+    return newRequest(url, "GET", arg...)
 }
 
-func (cls *Request) Post(url string, arg ...fakeArgs) (*Resp, error) {
-    return cls.newRequest(url, "POST", arg...)
+func Post(url string, arg ...fakeArgs) (*Resp, error) {
+    return newRequest(url, "POST", arg...)
 }
 
-func (cls *Request) Put(url string, arg ...fakeArgs) (*Resp, error) {
-	return cls.newRequest(url, "PUT", arg...)
+func Put(url string, arg ...fakeArgs) (*Resp, error) {
+	return newRequest(url, "PUT", arg...)
 }
 
-func (cls *Request) Delete(url string, arg ...fakeArgs) (*Resp, error) {
-	return cls.newRequest(url, "DELETE", arg...)
+func Delete(url string, arg ...fakeArgs) (*Resp, error) {
+	return newRequest(url, "DELETE", arg...)
 }
 
-func (cls *Request) Patch(url string, arg ...fakeArgs) (*Resp, error) {
-	return cls.newRequest(url, "PATCH", arg...)
+func Patch(url string, arg ...fakeArgs) (*Resp, error) {
+	return newRequest(url, "PATCH", arg...)
 }
 
-func (cls *Request) Options(url string, arg ...fakeArgs) (*Resp, error) {
-	return cls.newRequest(url, "OPTIONS", arg...)
+func Options(url string, arg ...fakeArgs) (*Resp, error) {
+	return newRequest(url, "OPTIONS", arg...)
 }
 
-func (cls *Request) WithParams(params map[string]string) fakeArgs {
+func WithParams(params map[string]string) fakeArgs {
     return func(arg *args) {
     	arg.params = params
 	}
 }
 
-func (cls *Request) WithJson(json map[string]interface{}) fakeArgs {
+func WithJson(json map[string]interface{}) fakeArgs {
 	return func(arg *args) {
 		arg.json = json
 	}
 }
 
-func (cls *Request) WithTimeout(timeout uint) fakeArgs {
+func WithTimeout(timeout uint) fakeArgs {
 	return func(arg *args) {
 		arg.timeout = timeout
 	}
 }
 
-func (cls *Request) WithAllowRedirects(allowRedirects bool) fakeArgs {
+func WithAllowRedirects(allowRedirects bool) fakeArgs {
 	return func(arg *args) {
 		arg.allowRedirects = allowRedirects
 	}
 }
 
-func (cls *Request) WithVerify(verify bool) fakeArgs {
+func WithVerify(verify bool) fakeArgs {
 	return func(arg *args) {
 		arg.verify = verify
 	}
@@ -80,7 +79,7 @@ func (cls *Request) WithVerify(verify bool) fakeArgs {
 
 
 
-func (cls *Request) newRequest(url, method string, arg ...fakeArgs) (*Resp, error) {
+func newRequest(url, method string, arg ...fakeArgs) (*Resp, error) {
     var (
     	err error
     	body io.Reader
@@ -125,7 +124,7 @@ func (cls *Request) newRequest(url, method string, arg ...fakeArgs) (*Resp, erro
 	}
 
     if !ar.allowRedirects {
-    	cli.CheckRedirect = cls.disableRedirect
+    	cli.CheckRedirect = disableRedirect
 	}
 
     if !ar.verify {
@@ -154,7 +153,7 @@ func (cls *Request) newRequest(url, method string, arg ...fakeArgs) (*Resp, erro
     return resP, err
 }
 
-func (cls *Request) disableRedirect(*http.Request, []*http.Request) error {
+func disableRedirect(*http.Request, []*http.Request) error {
 	return http.ErrUseLastResponse
 }
 

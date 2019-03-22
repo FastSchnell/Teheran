@@ -1,18 +1,13 @@
 package main
 
 import (
-	"Teheran/request"
+	"Teheran/requests"
 	"fmt"
 )
 
 func main() {
-	var req request.Request
-	resp, err := req.Get("http://112.74.200.115/ip",
-		req.WithAllowRedirects(true),
-		req.WithTimeout(1),
-		req.WithJson(map[string]interface{}{
-			"11": "22",}),
-		req.WithParams(map[string]string{
+	resp, err := requests.Get("http://112.74.200.115/ip",
+		requests.WithJson(map[string]interface{}{
 			"11": "22",}),
 		)
 

@@ -17,12 +17,11 @@ Install Teheran using the "go get" command:
 Usage
 -----
 ```go
-import "Teheran/request"
+import "Teheran/requests"
 
 func testReq() {
-    var req request.Request
     body := map[string]interface{}{"11": "22"}
-    resp, err := req.Post("http://112.74.200.115", req.WithJson(body))
+    resp, err := requests.Post("http://112.74.200.115", requests.WithJson(body))
     if err != nil {
         fmt.Println(err.Error())
     }
