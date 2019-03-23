@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/cookiejar"
+	"strings"
 	"time"
 )
 
@@ -18,6 +19,7 @@ type args struct {
 	timeout uint
 	params map[string]string
 	json map[string]interface{}
+	headers map[string]string
 }
 
 type fakeArgs func(*args)
@@ -59,6 +61,12 @@ func WithJson(json map[string]interface{}) fakeArgs {
 	}
 }
 
+func WithHeaders(headers map[string]string) fakeArgs {
+	return func(arg *args) {
+		arg.headers = headers
+	}
+}
+
 func WithTimeout(timeout uint) fakeArgs {
 	return func(arg *args) {
 		arg.timeout = timeout
@@ -88,7 +96,10 @@ func newRequest(url, method string, arg ...fakeArgs) (*Resp, error) {
     	resp *http.Response
 	)
 
-    ar := new(args)
+    ar := &args{
+    	allowRedirects: true,
+    	verify: true,
+	}
     for _, a := range arg {
     	a(ar)
 	}
@@ -109,6 +120,12 @@ func newRequest(url, method string, arg ...fakeArgs) (*Resp, error) {
 
     if ar.json != nil && method != "GET" {
     	req.Header.Set("Content-Type", "application/json")
+	}
+
+    if ar.headers != nil {
+    	for k, v := range ar.headers {
+    		req.Header.Set(k, v)
+		}
 	}
 
     if ar.params != nil {
@@ -146,11 +163,20 @@ func newRequest(url, method string, arg ...fakeArgs) (*Resp, error) {
 
     resP := &Resp{
     	StatusCode: resp.StatusCode,
-    	Header: resp.Header,
+    	Header: getHeader(resp.Header),
 	}
 
     resP.Body, err = ioutil.ReadAll(resp.Body)
     return resP, err
+}
+
+func getHeader(header map[string][]string) map[string]string {
+	newHeader := make(map[string]string)
+	for k, v := range header {
+		newHeader[k] = strings.Join(v, ",")
+	}
+
+	return newHeader
 }
 
 func disableRedirect(*http.Request, []*http.Request) error {
@@ -160,7 +186,7 @@ func disableRedirect(*http.Request, []*http.Request) error {
 type Resp struct {
 	StatusCode int
 	Body []byte
-	Header map[string][]string
+	Header map[string]string
 }
 
 func (cls *Resp) Json() (val map[string]interface{}, err error) {
