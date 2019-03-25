@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	goJson "encoding/json"
+	"errors"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -189,7 +190,19 @@ type Resp struct {
 	Header map[string]string
 }
 
-func (cls *Resp) Json() (val map[string]interface{}, err error) {
-	err = goJson.Unmarshal(cls.Body, &val)
+func (cls *Resp) Json(arg ...interface{}) (val map[string]interface{}, err error) {
+	if len(arg) == 0 {
+		err = goJson.Unmarshal(cls.Body, &val)
+	} else if len(arg) == 1 {
+		err = goJson.Unmarshal(cls.Body, arg[0])
+	} else {
+		return nil, errors.New("too many arg, max len is 1")
+	}
+
 	return
+}
+
+
+func (cls *Resp) List() {
+
 }
