@@ -10,8 +10,31 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"strings"
+	"sync"
 	"time"
 )
+
+var (
+	argsPool = sync.Pool{
+		New: func() interface{} {
+			return new(args)
+		},
+	}
+
+	httpClientPool = sync.Pool{
+		New: func() interface{} {
+		    return new(http.Client)
+		},
+	}
+
+	respPool = sync.Pool{
+		New: func() interface{} {
+			return new(Resp)
+		},
+	}
+
+)
+
 
 
 type args struct {
@@ -97,10 +120,16 @@ func newRequest(url, method string, arg ...fakeArgs) (*Resp, error) {
     	resp *http.Response
 	)
 
-    ar := &args{
-    	allowRedirects: true,
-    	verify: true,
-	}
+    ar := argsPool.Get().(*args)
+    defer argsPool.Put(ar)
+    ar.allowRedirects = true
+    ar.verify = true
+    ar.timeout = 0
+    ar.params = nil
+    ar.json = nil
+    ar.headers = nil
+
+
     for _, a := range arg {
     	a(ar)
 	}
@@ -137,9 +166,9 @@ func newRequest(url, method string, arg ...fakeArgs) (*Resp, error) {
     	req.URL.RawQuery = q.Encode()
 	}
 
-    cli := &http.Client{
-    	Timeout: time.Second * time.Duration(ar.timeout),
-	}
+    cli := httpClientPool.Get().(*http.Client)
+    defer httpClientPool.Put(cli)
+    cli.Timeout = time.Second * time.Duration(ar.timeout)
 
     if !ar.allowRedirects {
     	cli.CheckRedirect = disableRedirect
@@ -162,23 +191,15 @@ func newRequest(url, method string, arg ...fakeArgs) (*Resp, error) {
 	}
     defer resp.Body.Close()
 
-    resP := &Resp{
-    	StatusCode: resp.StatusCode,
-    	Header: getHeader(resp.Header),
-	}
-
+    resP := respPool.Get().(*Resp)
+    defer respPool.Put(resP)
+    resP.StatusCode = resp.StatusCode
+    resP.header = resp.Header
     resP.Body, err = ioutil.ReadAll(resp.Body)
+
     return resP, err
 }
 
-func getHeader(header map[string][]string) map[string]string {
-	newHeader := make(map[string]string)
-	for k, v := range header {
-		newHeader[k] = strings.Join(v, ",")
-	}
-
-	return newHeader
-}
 
 func disableRedirect(*http.Request, []*http.Request) error {
 	return http.ErrUseLastResponse
@@ -187,7 +208,16 @@ func disableRedirect(*http.Request, []*http.Request) error {
 type Resp struct {
 	StatusCode int
 	Body []byte
-	Header map[string]string
+	header map[string][]string
+}
+
+func (cls *Resp) Header() map[string]string {
+	newHeader := make(map[string]string)
+	for k, v := range cls.header {
+		newHeader[k] = strings.Join(v, ",")
+	}
+
+	return newHeader
 }
 
 func (cls *Resp) Json(arg ...interface{}) (val map[string]interface{}, err error) {
