@@ -40,7 +40,7 @@ var (
 type args struct {
 	allowRedirects bool
 	verify bool
-	timeout uint
+	timeout time.Duration
 	params map[string]string
 	json map[string]interface{}
 	headers map[string]string
@@ -91,7 +91,7 @@ func WithHeaders(headers map[string]string) fakeArgs {
 	}
 }
 
-func WithTimeout(timeout uint) fakeArgs {
+func WithTimeout(timeout time.Duration) fakeArgs {
 	return func(arg *args) {
 		arg.timeout = timeout
 	}
@@ -168,7 +168,7 @@ func newRequest(url, method string, arg ...fakeArgs) (*Resp, error) {
 
     cli := httpClientPool.Get().(*http.Client)
     defer httpClientPool.Put(cli)
-    cli.Timeout = time.Second * time.Duration(ar.timeout)
+    cli.Timeout = ar.timeout
 
     if !ar.allowRedirects {
     	cli.CheckRedirect = disableRedirect
