@@ -23,38 +23,28 @@ var (
 
 	httpClientPool = sync.Pool{
 		New: func() interface{} {
-		    return new(http.Client)
+			return new(http.Client)
 		},
 	}
-
-	respPool = sync.Pool{
-		New: func() interface{} {
-			return new(Resp)
-		},
-	}
-
 )
-
-
 
 type args struct {
 	allowRedirects bool
-	verify bool
-	timeout time.Duration
-	params map[string]string
-	json map[string]interface{}
-	headers map[string]string
+	verify         bool
+	timeout        time.Duration
+	params         map[string]string
+	json           map[string]interface{}
+	headers        map[string]string
 }
 
 type fakeArgs func(*args)
 
-
 func Get(url string, arg ...fakeArgs) (*Resp, error) {
-    return newRequest(url, "GET", arg...)
+	return newRequest(url, "GET", arg...)
 }
 
 func Post(url string, arg ...fakeArgs) (*Resp, error) {
-    return newRequest(url, "POST", arg...)
+	return newRequest(url, "POST", arg...)
 }
 
 func Put(url string, arg ...fakeArgs) (*Resp, error) {
@@ -74,8 +64,8 @@ func Options(url string, arg ...fakeArgs) (*Resp, error) {
 }
 
 func WithParams(params map[string]string) fakeArgs {
-    return func(arg *args) {
-    	arg.params = params
+	return func(arg *args) {
+		arg.params = params
 	}
 }
 
@@ -109,72 +99,72 @@ func WithVerify(verify bool) fakeArgs {
 	}
 }
 
-
-
 func newRequest(url, method string, arg ...fakeArgs) (*Resp, error) {
-    var (
-    	err error
-    	body io.Reader
-    	jsonVal []byte
-    	req *http.Request
-    	resp *http.Response
+	var (
+		err     error
+		body    io.Reader
+		jsonVal []byte
+		req     *http.Request
+		resp    *http.Response
 	)
 
-    ar := argsPool.Get().(*args)
-    defer argsPool.Put(ar)
-    ar.allowRedirects = true
-    ar.verify = true
-    ar.timeout = 0
-    ar.params = nil
-    ar.json = nil
-    ar.headers = nil
+	ar := argsPool.Get().(*args)
+	defer argsPool.Put(ar)
+	ar.allowRedirects = true
+	ar.verify = true
+	ar.timeout = 0
+	ar.params = nil
+	ar.json = nil
+	ar.headers = nil
 
-
-    for _, a := range arg {
-    	a(ar)
+	for _, a := range arg {
+		a(ar)
 	}
 
-    if ar.json != nil && method != "GET" {
-    	jsonVal, err = goJson.Marshal(ar.json)
-    	if err != nil {
-    		return nil, err
+	if ar.json != nil && method != "GET" {
+		jsonVal, err = goJson.Marshal(ar.json)
+		if err != nil {
+			return nil, err
 		}
 
-    	body = bytes.NewBuffer(jsonVal)
+		body = bytes.NewBuffer(jsonVal)
 	}
 
-    req, err = http.NewRequest(method, url, body)
-    if err != nil {
-    	return nil, err
+	req, err = http.NewRequest(method, url, body)
+	if err != nil {
+		return nil, err
 	}
 
-    if ar.json != nil && method != "GET" {
-    	req.Header.Set("Content-Type", "application/json")
+	if ar.json != nil && method != "GET" {
+		req.Header.Set("Content-Type", "application/json")
 	}
 
-    if ar.headers != nil {
-    	for k, v := range ar.headers {
-    		req.Header.Set(k, v)
+	if ar.headers != nil {
+		for k, v := range ar.headers {
+			req.Header.Set(k, v)
 		}
 	}
 
-    if ar.params != nil {
-    	q := req.URL.Query()
-    	for k, v := range ar.params {
-            q.Add(k, v)
+	if ar.params != nil {
+		q := req.URL.Query()
+		for k, v := range ar.params {
+			q.Add(k, v)
 		}
-    	req.URL.RawQuery = q.Encode()
+		req.URL.RawQuery = q.Encode()
 	}
 
-    cli := httpClientPool.Get().(*http.Client)
-    defer httpClientPool.Put(cli)
-    cli.Timeout = ar.timeout
+	cli := httpClientPool.Get().(*http.Client)
+	defer httpClientPool.Put(cli)
+	cli.Transport = nil
+	cli.CheckRedirect = nil
+	cli.Jar = nil
+	cli.Timeout = ar.timeout
 
-    if !ar.allowRedirects {
-    	cli.CheckRedirect = disableRedirect
+	if !ar.allowRedirects {
+		cli.CheckRedirect = disableRedirect
 	}
 
-    if !ar.verify {
+	if !ar.verify {
 		tr := &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}
@@ -185,21 +175,19 @@ func newRequest(url, method string, arg ...fakeArgs) (*Resp, error) {
 		cli.Transport = tr
 	}
 
-    resp, err = cli.Do(req)
-    if err != nil {
-    	return nil, err
+	resp, err = cli.Do(req)
+	if err != nil {
+		return nil, err
 	}
-    defer resp.Body.Close()
+	defer resp.Body.Close()
 
-    resP := respPool.Get().(*Resp)
-    defer respPool.Put(resP)
-    resP.StatusCode = resp.StatusCode
-    resP.header = resp.Header
-    resP.Body, err = ioutil.ReadAll(resp.Body)
+	resP := new(Resp)
+	resP.StatusCode = resp.StatusCode
+	resP.header = resp.Header
+	resP.Body, err = ioutil.ReadAll(resp.Body)
 
-    return resP, err
+	return resP, err
 }
-
 
 func disableRedirect(*http.Request, []*http.Request) error {
 	return http.ErrUseLastResponse
@@ -207,8 +195,8 @@ func disableRedirect(*http.Request, []*http.Request) error {
 
 type Resp struct {
 	StatusCode int
-	Body []byte
-	header map[string][]string
+	Body       []byte
+	header     map[string][]string
 }
 
 func (cls *Resp) Header() map[string]string {
@@ -232,7 +220,6 @@ func (cls *Resp) Json(arg ...interface{}) (val map[string]interface{}, err error
 	return
 }
 
-
 func (cls *Resp) List(arg ...interface{}) (val []interface{}, err error) {
 	if len(arg) == 0 {
 		err = goJson.Unmarshal(cls.Body, &val)
@@ -244,7 +231,6 @@ func (cls *Resp) List(arg ...interface{}) (val []interface{}, err error) {
 
 	return
 }
-
 
 func (cls *Resp) JsonAndValueIsString() (val map[string]string, err error) {
 	err = goJson.Unmarshal(cls.Body, &val)
