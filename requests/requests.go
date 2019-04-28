@@ -26,12 +26,6 @@ var (
 			return new(http.Client)
 		},
 	}
-
-	respPool = sync.Pool{
-		New: func() interface{} {
-			return new(Resp)
-		},
-	}
 )
 
 type args struct {
@@ -161,6 +155,9 @@ func newRequest(url, method string, arg ...fakeArgs) (*Resp, error) {
 
 	cli := httpClientPool.Get().(*http.Client)
 	defer httpClientPool.Put(cli)
+	cli.Transport = nil
+	cli.CheckRedirect = nil
+	cli.Jar = nil
 	cli.Timeout = ar.timeout
 
 	if !ar.allowRedirects {
@@ -184,8 +181,7 @@ func newRequest(url, method string, arg ...fakeArgs) (*Resp, error) {
 	}
 	defer resp.Body.Close()
 
-	resP := respPool.Get().(*Resp)
-	defer respPool.Put(resP)
+	resP := new(Resp)
 	resP.StatusCode = resp.StatusCode
 	resP.header = resp.Header
 	resP.Body, err = ioutil.ReadAll(resp.Body)
