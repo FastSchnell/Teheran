@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	goJson "encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -34,6 +35,7 @@ type args struct {
 	timeout        time.Duration
 	params         map[string]string
 	json           map[string]interface{}
+	data           map[string]string
 	headers        map[string]string
 }
 
@@ -75,6 +77,12 @@ func WithJson(json map[string]interface{}) fakeArgs {
 	}
 }
 
+//func WithData(data map[string]string) fakeArgs {
+//	return func(arg *args) {
+//		arg.data = data
+//	}
+//}
+
 func WithHeaders(headers map[string]string) fakeArgs {
 	return func(arg *args) {
 		arg.headers = headers
@@ -104,8 +112,9 @@ func newRequest(url, method string, arg ...fakeArgs) (*Resp, error) {
 		err     error
 		body    io.Reader
 		jsonVal []byte
-		req     *http.Request
-		resp    *http.Response
+		//dataVal []string
+		req  *http.Request
+		resp *http.Response
 	)
 
 	ar := argsPool.Get().(*args)
@@ -115,33 +124,60 @@ func newRequest(url, method string, arg ...fakeArgs) (*Resp, error) {
 	ar.timeout = 0
 	ar.params = nil
 	ar.json = nil
+	ar.data = nil
 	ar.headers = nil
 
 	for _, a := range arg {
 		a(ar)
 	}
 
-	if ar.json != nil && method != "GET" {
+	if method == "GET" {
+
+	} else if ar.json != nil {
 		jsonVal, err = goJson.Marshal(ar.json)
 		if err != nil {
 			return nil, err
 		}
 
 		body = bytes.NewBuffer(jsonVal)
+	} else if ar.data != nil {
+		//for k, v := range ar.data {
+		//	dataVal = append(dataVal, fmt.Sprintf("%s=%s", k, v))
+		//}
+		//
+		//body = strings.NewReader(strings.Join(dataVal, "&"))
+		//
+		//fmt.Println(strings.Join(dataVal, "&"))
+
+		var r http.Request
+		r.ParseForm()
+		for k, v := range ar.data {
+			r.Form.Add(k, v)
+		}
+
+		body = strings.NewReader(r.Form.Encode())
+
+		fmt.Println(r.Form.Encode())
+
 	}
 
 	req, err = http.NewRequest(method, url, body)
 	if err != nil {
 		return nil, err
 	}
+	req.Close = true
 
-	if ar.json != nil && method != "GET" {
+	if method == "GET" {
+
+	} else if ar.json != nil {
 		req.Header.Set("Content-Type", "application/json")
+	} else if ar.data != nil {
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	}
 
 	if ar.headers != nil {
 		for k, v := range ar.headers {
-			req.Header.Set(k, v)
+			req.Header.Add(k, v)
 		}
 	}
 
