@@ -1,15 +1,16 @@
 package main
 
 import (
-	"Teheran/requests"
+	"github.com/FastSchnell/Teheran/requests"
 	"fmt"
 )
 
 func main() {
-	resp, err := requests.Get("http://112.74.200.115/ip",
-		requests.WithJson(map[string]interface{}{
-			"11": "22",}),
-		)
+	resp, err := requests.Get("https://httpbin.org/get",
+		requests.WithParams(map[string]string{
+			"key": "value",
+		}),
+	)
 
 	if err != nil {
 		fmt.Println(err.Error())
@@ -21,6 +22,6 @@ func main() {
 	if err != nil {
 		fmt.Println("json err", err.Error())
 	}
-	fmt.Println(json["ip"])
+	fmt.Println(json["url"])
 }
 
