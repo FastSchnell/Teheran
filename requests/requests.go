@@ -5,11 +5,10 @@ import (
 	"crypto/tls"
 	goJson "encoding/json"
 	"errors"
-	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/cookiejar"
+	netUrl "net/url"
 	"strings"
 	"sync"
 	"time"
@@ -39,80 +38,73 @@ type args struct {
 	headers        map[string]string
 }
 
-type fakeArgs func(*args)
+type Option func(*args)
 
-func Get(url string, arg ...fakeArgs) (*Resp, error) {
+func Get(url string, arg ...Option) (*Resp, error) {
 	return newRequest(url, "GET", arg...)
 }
 
-func Post(url string, arg ...fakeArgs) (*Resp, error) {
+func Post(url string, arg ...Option) (*Resp, error) {
 	return newRequest(url, "POST", arg...)
 }
 
-func Put(url string, arg ...fakeArgs) (*Resp, error) {
+func Put(url string, arg ...Option) (*Resp, error) {
 	return newRequest(url, "PUT", arg...)
 }
 
-func Delete(url string, arg ...fakeArgs) (*Resp, error) {
+func Delete(url string, arg ...Option) (*Resp, error) {
 	return newRequest(url, "DELETE", arg...)
 }
 
-func Patch(url string, arg ...fakeArgs) (*Resp, error) {
+func Patch(url string, arg ...Option) (*Resp, error) {
 	return newRequest(url, "PATCH", arg...)
 }
 
-func Options(url string, arg ...fakeArgs) (*Resp, error) {
+func Options(url string, arg ...Option) (*Resp, error) {
 	return newRequest(url, "OPTIONS", arg...)
 }
 
-func WithParams(params map[string]string) fakeArgs {
+func WithParams(params map[string]string) Option {
 	return func(arg *args) {
 		arg.params = params
 	}
 }
 
-func WithJson(json map[string]interface{}) fakeArgs {
+func WithJson(json map[string]interface{}) Option {
 	return func(arg *args) {
 		arg.json = json
 	}
 }
 
-//func WithData(data map[string]string) fakeArgs {
-//	return func(arg *args) {
-//		arg.data = data
-//	}
-//}
-
-func WithHeaders(headers map[string]string) fakeArgs {
+func WithHeaders(headers map[string]string) Option {
 	return func(arg *args) {
 		arg.headers = headers
 	}
 }
 
-func WithTimeout(timeout time.Duration) fakeArgs {
+func WithTimeout(timeout time.Duration) Option {
 	return func(arg *args) {
 		arg.timeout = timeout
 	}
 }
 
-func WithAllowRedirects(allowRedirects bool) fakeArgs {
+func WithAllowRedirects(allowRedirects bool) Option {
 	return func(arg *args) {
 		arg.allowRedirects = allowRedirects
 	}
 }
 
-func WithVerify(verify bool) fakeArgs {
+func WithVerify(verify bool) Option {
 	return func(arg *args) {
 		arg.verify = verify
 	}
 }
 
-func newRequest(url, method string, arg ...fakeArgs) (*Resp, error) {
+func newRequest(url, method string, arg ...Option) (*Resp, error) {
 	var (
 		err     error
 		body    io.Reader
 		jsonVal []byte
-		//dataVal []string
 		req  *http.Request
 		resp *http.Response
 	)
@@ -141,24 +133,11 @@ func newRequest(url, method string, arg ...fakeArgs) (*Resp, error) {
 
 		body = bytes.NewBuffer(jsonVal)
 	} else if ar.data != nil {
-		//for k, v := range ar.data {
-		//	dataVal = append(dataVal, fmt.Sprintf("%s=%s", k, v))
-		//}
-		//
-		//body = strings.NewReader(strings.Join(dataVal, "&"))
-		//
-		//fmt.Println(strings.Join(dataVal, "&"))
-
-		var r http.Request
-		r.ParseForm()
+		vals := make(netUrl.Values)
 		for k, v := range ar.data {
-			r.Form.Add(k, v)
+			vals.Set(k, v)
 		}
-
-		body = strings.NewReader(r.Form.Encode())
-
-		fmt.Println(r.Form.Encode())
-
+		body = strings.NewReader(vals.Encode())
 	}
 
 	req, err = http.NewRequest(method, url, body)
@@ -220,7 +199,7 @@ func newRequest(url, method string, arg ...fakeArgs) (*Resp, error) {
 	resP := new(Resp)
 	resP.StatusCode = resp.StatusCode
 	resP.header = resp.Header
-	resP.Body, err = ioutil.ReadAll(resp.Body)
+	resP.Body, err = io.ReadAll(resp.Body)
 
 	return resP, err
 }
@@ -235,20 +214,20 @@ type Resp struct {
 	header     map[string][]string
 }
 
-func (cls *Resp) Header() map[string]string {
+func (r *Resp) Header() map[string]string {
 	newHeader := make(map[string]string)
-	for k, v := range cls.header {
+	for k, v := range r.header {
 		newHeader[k] = strings.Join(v, ",")
 	}
 
 	return newHeader
 }
 
-func (cls *Resp) Json(arg ...interface{}) (val map[string]interface{}, err error) {
+func (r *Resp) Json(arg ...interface{}) (val map[string]interface{}, err error) {
 	if len(arg) == 0 {
-		err = goJson.Unmarshal(cls.Body, &val)
+		err = goJson.Unmarshal(r.Body, &val)
 	} else if len(arg) == 1 {
-		err = goJson.Unmarshal(cls.Body, arg[0])
+		err = goJson.Unmarshal(r.Body, arg[0])
 	} else {
 		return nil, errors.New("too many arg, max len is 1")
 	}
@@ -256,11 +235,11 @@ func (cls *Resp) Json(arg ...interface{}) (val map[string]interface{}, err error
 	return
 }
 
-func (cls *Resp) List(arg ...interface{}) (val []interface{}, err error) {
+func (r *Resp) List(arg ...interface{}) (val []interface{}, err error) {
 	if len(arg) == 0 {
-		err = goJson.Unmarshal(cls.Body, &val)
+		err = goJson.Unmarshal(r.Body, &val)
 	} else if len(arg) == 1 {
-		err = goJson.Unmarshal(cls.Body, arg[0])
+		err = goJson.Unmarshal(r.Body, arg[0])
 	} else {
 		return nil, errors.New("too many arg, max len is 1")
 	}
@@ -268,7 +247,7 @@ func (cls *Resp) List(arg ...interface{}) (val []interface{}, err error) {
 	return
 }
 
-func (cls *Resp) JsonAndValueIsString() (val map[string]string, err error) {
-	err = goJson.Unmarshal(cls.Body, &val)
+func (r *Resp) JsonAndValueIsString() (val map[string]string, err error) {
+	err = goJson.Unmarshal(r.Body, &val)
 	return
 }
