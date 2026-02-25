@@ -14,8 +14,6 @@ import (
 	"time"
 )
 
-const defaultTimeout = 30 * time.Second
-
 var (
 	argsPool = sync.Pool{
 		New: func() interface{} {
@@ -23,8 +21,10 @@ var (
 		},
 	}
 
-	insecureTransport = &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	httpClientPool = sync.Pool{
+		New: func() interface{} {
+			return new(http.Client)
+		},
 	}
 )
 
@@ -113,7 +113,7 @@ func newRequest(url, method string, arg ...Option) (*Resp, error) {
 	defer argsPool.Put(ar)
 	ar.allowRedirects = true
 	ar.verify = true
-	ar.timeout = defaultTimeout
+	ar.timeout = 0
 	ar.params = nil
 	ar.json = nil
 	ar.data = nil
@@ -168,18 +168,26 @@ func newRequest(url, method string, arg ...Option) (*Resp, error) {
 		req.URL.RawQuery = q.Encode()
 	}
 
-	cli := &http.Client{
-		Timeout: ar.timeout,
-	}
+	cli := httpClientPool.Get().(*http.Client)
+	defer httpClientPool.Put(cli)
+	cli.Transport = nil
+	cli.CheckRedirect = nil
+	cli.Jar = nil
+	cli.Timeout = ar.timeout
 
 	if !ar.allowRedirects {
 		cli.CheckRedirect = disableRedirect
 	}
 
 	if !ar.verify {
+		tr := &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+
 		cookieJar, _ := cookiejar.New(nil)
+
 		cli.Jar = cookieJar
-		cli.Transport = insecureTransport
+		cli.Transport = tr
 	}
 
 	resp, err = cli.Do(req)
